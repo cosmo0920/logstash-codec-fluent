@@ -64,6 +64,8 @@ class LogStash::Codecs::Fluent < LogStash::Codecs::Base
   end # def encode
 
   class EventTime
+    attr_reader :sec, :nsec
+
     TYPE = 0
 
     def initialize(sec, nsec = 0)
@@ -90,6 +92,15 @@ class LogStash::Codecs::Fluent < LogStash::Codecs::Base
 
   private
 
+  def decode_fluent_time(fluent_time)
+    case fluent_time
+    when Fixnum
+      fluent_time
+    when EventTime
+      Time.at(fluent_time.sec, fluent_time.nsec)
+    end
+  end
+
   def decode_event(data, &block)
     tag = data[0]
     entries = data[1]
@@ -105,7 +116,7 @@ class LogStash::Codecs::Fluent < LogStash::Codecs::Base
 
       entries_decoder = @decoder
       entries_decoder.feed_each(entries) do |entry|
-        epochtime = entry[0]
+        epochtime = decode_fluent_time(entry[0])
         map = entry[1]
         event = LogStash::Event.new(map.merge(
                                       LogStash::Event::TIMESTAMP => LogStash::Timestamp.at(epochtime),
@@ -116,7 +127,7 @@ class LogStash::Codecs::Fluent < LogStash::Codecs::Base
     when Array
       # Forward
       entries.each do |entry|
-        epochtime = entry[0]
+        epochtime = decode_fluent_time(entry[0])
         map = entry[1]
         event = LogStash::Event.new(map.merge(
                                       LogStash::Event::TIMESTAMP => LogStash::Timestamp.at(epochtime),
@@ -124,9 +135,9 @@ class LogStash::Codecs::Fluent < LogStash::Codecs::Base
                                     ))
         yield event
       end
-    when Fixnum
+    when Fixnum, EventTime
       # Message
-      epochtime = entries
+      epochtime = decode_fluent_time(entries)
       map = data[2]
       event = LogStash::Event.new(map.merge(
                                     LogStash::Event::TIMESTAMP => LogStash::Timestamp.at(epochtime),
