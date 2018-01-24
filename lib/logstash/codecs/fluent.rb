@@ -50,7 +50,7 @@ class LogStash::Codecs::Fluent < LogStash::Codecs::Base
   def encode(event)
     tag = event.get("tags") || "log"
     epochtime = if @nanosecond_precision
-                  EventTime.new(event.timestamp.to_i, event.timestamp.usec)
+                  EventTime.new(event.timestamp.to_i, event.timestamp.usec * 1000)
                 else
                   event.timestamp.to_i
                 end
